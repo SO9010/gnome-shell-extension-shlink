@@ -1,9 +1,15 @@
-function get_url(text) {
-  const regexp = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)/
+/* utils.js
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
-  if (regexp.test(text)) {
-    return text
-  } else {
+const URL_REGEXP =
+  /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)/
+
+export function getUrl(text) {
+  if (!text) {
     return null
   }
+
+  return URL_REGEXP.test(text) ? text : null
 }

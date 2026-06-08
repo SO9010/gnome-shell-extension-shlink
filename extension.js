@@ -16,72 +16,109 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-/* exported init */
+import St from 'gi://St'
+import Soup from 'gi://Soup'
+import Meta from 'gi://Meta'
+import Shell from 'gi://Shell'
+import GLib from 'gi://GLib'
 
-const St = imports.gi.St
-const Main = imports.ui.main
-const Soup = imports.gi.Soup
-const Meta = imports.gi.Meta
-const Shell = imports.gi.Shell
-const ExtensionUtils = imports.misc.extensionUtils;
+import * as Main from 'resource:///org/gnome/shell/ui/main.js'
+import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js'
 
-const Me = imports.misc.extensionUtils.getCurrentExtension()
-const Utils = Me.imports.utils
-const Prefs = Me.imports.prefs
+import {getUrl} from './utils.js'
 
-class Extension {
+const SHORTEN_AND_COPY_KEY = 'shorten-and-copy-shortcut'
+const INSTANCE_URL_KEY = 'instance-url'
+const API_KEY_KEY = 'api-key'
+
+export default class ShlinkExtension extends Extension {
   enable() {
-    this.clipboard = St.Clipboard.get_default()
-    this.settings = ExtensionUtils.getSettings()
+    this._clipboard = St.Clipboard.get_default()
+    this._settings = this.getSettings()
+    this._session = new Soup.Session()
 
     Main.wm.addKeybinding(
-      Prefs.SHORTEN_AND_COPY_KEY,
-      this.settings,
+      SHORTEN_AND_COPY_KEY,
+      this._settings,
       Meta.KeyBindingFlags.NONE,
-      Shell.ActionMode.NORMAL |
-      Shell.ActionMode.OVERVIEW,
-      () => this.shorten(),
+      Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+      () => this._shorten(),
     )
   }
 
-  shorten() {
-    this.clipboard.get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
-      const url = Utils.get_url(text)
+  disable() {
+    Main.wm.removeKeybinding(SHORTEN_AND_COPY_KEY)
+
+    this._session?.abort()
+    this._session = null
+    this._settings = null
+    this._clipboard = null
+  }
+
+  _shorten() {
+    this._clipboard.get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
+      const url = getUrl(text)
 
       if (url === null) {
-        this.showNotification('No URL found in clipboard')
+        this._notify('No URL found in clipboard')
         return
       }
 
-      const session = new Soup.Session()
-      const message = Soup.form_request_new_from_hash('POST', `${this.settings.get_string(Prefs.INSTANCE_URL_KEY)}/rest/v2/short-urls`, {
-        longUrl: text
-      })
+      const instanceUrl = this._settings.get_string(INSTANCE_URL_KEY).replace(/\/+$/, '')
+      const apiKey = this._settings.get_string(API_KEY_KEY)
+
+      // Shlink REST API v3 (Shlink 3.x / 4.x): POST /rest/v3/short-urls
+      const message = Soup.Message.new('POST', `${instanceUrl}/rest/v3/short-urls`)
+      message.request_headers.append('X-Api-Key', apiKey)
       message.request_headers.append('Accept', 'application/json')
-      message.request_headers.append('X-Api-Key', this.settings.get_string(Prefs.API_KEY_KEY))
 
-      session.queue_message(message, (session, response) => {
-        if (response.status_code !== 200) {
-          this.showNotification(`Could not shorten URL (${response.status_code})`)
-          return
-        }
+      const payload = JSON.stringify({longUrl: url})
+      message.set_request_body_from_bytes(
+        'application/json',
+        new GLib.Bytes(new TextEncoder().encode(payload)),
+      )
 
-        const data = JSON.parse(message.response_body.data)
-        this.clipboard.set_text(St.ClipboardType.CLIPBOARD, data.shortUrl)
-        this.showNotification(`URL shortened`)
-      })
+      this._session.send_and_read_async(
+        message,
+        GLib.PRIORITY_DEFAULT,
+        null,
+        (session, result) => {
+          let bytes
+          try {
+            bytes = session.send_and_read_finish(result)
+          } catch (e) {
+            this._notify(`Could not reach Shlink instance: ${e.message}`)
+            return
+          }
+
+          const status = message.get_status()
+          const responseText = new TextDecoder().decode(bytes?.get_data() ?? new Uint8Array())
+
+          if (status !== Soup.Status.OK) {
+            let detail = ''
+            try {
+              const error = JSON.parse(responseText)
+              detail = error.detail ? `: ${error.detail}` : ''
+            } catch (_e) {
+              // Response was not JSON; show the bare status code.
+            }
+            this._notify(`Could not shorten URL (${status})${detail}`)
+            return
+          }
+
+          try {
+            const data = JSON.parse(responseText)
+            this._clipboard.set_text(St.ClipboardType.CLIPBOARD, data.shortUrl)
+            this._notify('URL shortened')
+          } catch (e) {
+            this._notify(`Unexpected response from Shlink: ${e.message}`)
+          }
+        },
+      )
     })
   }
 
-  showNotification(text) {
-    Main.notify(text)
+  _notify(text) {
+    Main.notify('Shlink', text)
   }
-
-  disable() {
-    Main.wm.removeKeybinding(Prefs.SHORTEN_AND_COPY_KEY)
-  }
-}
-
-function init() {
-  return new Extension()
 }

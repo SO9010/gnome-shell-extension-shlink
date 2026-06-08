@@ -5,6 +5,12 @@
   "settings-schema": "org.gnome.shell.extensions.shlink",
   "url": "https://github.com/timoschwarzer/gnome-shell-extension-shlink",
   "shell-version": [
-    "3.36"
-  ]
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50"
+  ],
+  "version": 2
 }
