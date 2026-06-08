@@ -13,6 +13,7 @@ import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/ex
 const SHORTEN_AND_COPY_KEY = 'shorten-and-copy-shortcut'
 const INSTANCE_URL_KEY = 'instance-url'
 const API_KEY_KEY = 'api-key'
+const AUTO_SHORTEN_KEY = 'auto-shorten'
 
 export default class ShlinkPreferences extends ExtensionPreferences {
   fillPreferencesWindow(window) {
@@ -35,6 +36,17 @@ export default class ShlinkPreferences extends ExtensionPreferences {
     const apiKeyRow = new Adw.PasswordEntryRow({title: 'API key'})
     settings.bind(API_KEY_KEY, apiKeyRow, 'text', Gio.SettingsBindFlags.DEFAULT)
     connectionGroup.add(apiKeyRow)
+
+    // --- Behavior --------------------------------------------------------
+    const behaviorGroup = new Adw.PreferencesGroup({title: 'Behavior'})
+    page.add(behaviorGroup)
+
+    const autoRow = new Adw.SwitchRow({
+      title: 'Auto-shorten clipboard URLs',
+      subtitle: 'Automatically shorten any URL you copy to the clipboard',
+    })
+    settings.bind(AUTO_SHORTEN_KEY, autoRow, 'active', Gio.SettingsBindFlags.DEFAULT)
+    behaviorGroup.add(autoRow)
 
     // --- Keyboard shortcut ----------------------------------------------
     const shortcutGroup = new Adw.PreferencesGroup({title: 'Keyboard Shortcut'})

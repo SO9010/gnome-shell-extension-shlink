@@ -30,9 +30,15 @@ Open the extension's preferences (`gnome-extensions prefs $uuid`) and set:
 
 - **Shlink instance URL** – e.g. `https://s.example.com`
 - **API key** – an API key generated on your Shlink instance
+- **Auto-shorten clipboard URLs** – when enabled, any URL you copy is shortened
+  automatically (off by default)
 - **Keyboard shortcut** – the shortcut that shortens the clipboard URL
 
 ## Usage
 
 Copy a URL to the clipboard and press the shortcut. The shortened URL replaces
 the clipboard contents and a notification confirms the result.
+
+Alternatively, enable **Auto-shorten clipboard URLs** in the preferences and
+every URL you copy is shortened automatically — no shortcut needed. Links that
+already point at your Shlink instance are left untouched, so it never loops.

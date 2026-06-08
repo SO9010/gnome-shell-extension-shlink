@@ -20,5 +20,10 @@
             </default>
             <summary>API Key</summary>
         </key>
+
+        <key type="b" name="auto-shorten">
+            <default>false</default>
+            <summary>Automatically shorten URLs in the clipboard</summary>
+        </key>
     </schema>
 </schemalist>
